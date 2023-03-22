@@ -1,9 +1,17 @@
-#%%
+'''
+data_generation.py
+
+This module contains all the functions relevent to engineer all the nessesary features required for model prediction. 
+
+Additionally, it provides all the cleaning and scaling steps to make the input suitable for posting to the model 
+'''
 import pandas as pd
 import numpy as np
 from datetime import date
 
-
+'''
+Generates a test set that can be used to trial the other functions in this module
+'''
 def make_test_df(samp):
     cust = pd.read_csv('../resources/data/customers_tm1_e.csv')
     trans = pd.read_csv('../resources/data/transactions_tm1_e.csv')
@@ -21,6 +29,16 @@ def make_test_df(samp):
 
     return new_cust,new_trans
 
+
+'''
+Initial Processing takes the JSON input and ensures that all of the contents are converted to their correct data type.
+
+It also performs data-validation by removing outliers from the query. I.e. customers with sub-zero balances
+
+Additional cleaning steps are taken such as converting shortened state names into complete state names to match the rest of our data. I.e. Tx becomes Texas
+
+Initial Feature engineering is performed to generate some of the simple features such as lifetime_cumulative_withdrawals.
+'''
 def initial_processing(cust,trans):
 
     # Allow a df or file_path to be passed into the function
@@ -105,6 +123,13 @@ def initial_processing(cust,trans):
     df.dropna(axis = 'index',inplace=True)
     return df
 
+
+'''
+monthly_data:
+
+Converts the intial dataset which is a list of transactions per customer and groups them into monthly bins.
+Additionally these bins are matched with a macroeconomic dataset to provide unemployment, gdp/c, exp/c values for each month
+'''
 def monthly_data(df,econ_data_file_name):
     
     df['month_year'] = df['date'].dt.to_period('M')
@@ -139,19 +164,18 @@ def monthly_data(df,econ_data_file_name):
     df_month['total_cum_count_transactions'] = grouped['monthly_transactions'].cumcount()
     df_month['total_cum_count_interactions'] = grouped['monthly_interactions'].cumcount()
 
-    # df_month['creation_date'] = pd.to_datetime(df_month['creation_date'])
-    # df_month['months_from_creation'] = (df_month.month_year.view(dtype='int64') - df_month['creation_date'].dt.to_period('M').view(dtype='int64'))#.astype(np.timedelta64('M'))
-
     macro = pd.read_csv(econ_data_file_name,index_col=0)
     macro['DATE'] = pd.to_datetime(macro.DATE)
     macro['DATE'] = macro['DATE'].dt.to_period('M')
 
     df_econ = pd.merge(macro,df_month,left_on='DATE',right_on='month_year',how = 'right').drop('month_year',axis = 1)
 
-    # df_econ.to_csv('../data/monthly_churn_with_econV2.csv')
     return df_econ
 
 
+'''
+Final steps of feature engineering to produce the time-dependant rolling features such as 3/6/12_month_rolling_sum/max/decay
+'''
 def final_processing(df):
     df['max_account'] = df.groupby('account_id')['end_of_month_balance'].transform(max)
     df['net_diff'] = df['monthly_deposit'] + df['monthly_withdrawal'] 
@@ -176,12 +200,6 @@ def final_processing(df):
 
     df['UNEMP_rolling'] = df.groupby('account_id')['UNEMP'].rolling(window=3, min_periods=1).mean().reset_index(level=0, drop=True)
 
-    # df['churn0.5'] = df.apply(lambda x: 1 if (x.three_monthly_decay < -0.5) | (x.churn == 1) else 0, axis=1)
-    # # df['CHURN'] = df['churn0.5']
-
-    # grouped = df.groupby('account_id')
-    # df['CHURN'] = grouped['churn0.5'].shift(periods=-1,axis=0)
-    # df['CHURN'] = df['CHURN'].fillna(0)
 
     df['age'] = (df['DATE'].dt.to_timestamp() - pd.to_datetime(df['dob'])).astype('timedelta64[Y]')
 

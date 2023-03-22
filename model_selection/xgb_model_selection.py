@@ -6,7 +6,6 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, confusion_matrix,ConfusionMatrixDisplay,classification_report, roc_auc_score, roc_curve, precision_recall_curve, make_scorer,fbeta_score
 from sklearn.model_selection import train_test_split, StratifiedKFold, cross_val_score
 from sklearn.preprocessing import LabelEncoder
-import lightgbm as lgb
 import xgboost as xgb
 import argparse
 import mlflow
@@ -19,7 +18,7 @@ logging.basicConfig(format='[%(levelname)s %(module)s] %(asctime)s - %(message)s
 
 logger = logging.getLogger(__name__)
 
-experiment_name = 'bank_churn_project_xgb_V2'
+experiment_name = 'bank_churn_project_xgb_DN'
 parser = argparse.ArgumentParser(description = experiment_name)
 
 tracking_uri = r'file:///C:/mlflow_local/mlruns'
@@ -30,13 +29,12 @@ mlflow.set_experiment(experiment_name)
 
 #%%
 
-file_name = 'modelling_data.csv' # ENTER CSV FILE NAME  HERE, INCLUDING .csv
+file_name = 'Modelling_DATA_dn.csv' # ENTER CSV FILE NAME  HERE, INCLUDING .csv
 df = pd.read_csv('../data/'+file_name,index_col=0)
 #%%
 
 rng = np.random.RandomState(1234)
 X = df.drop(columns=['CHURN'])
-# X['state'] = LabelEncoder().fit_transform(X['state']) 
 y = df['CHURN']
 X_train,X_test,y_train,y_test = train_test_split(X,y,test_size=0.1,random_state=rng,stratify = y)
 
@@ -138,7 +136,7 @@ if __name__ == '__main__':
         sampler = optuna.samplers.TPESampler(seed=1234)
         study = optuna.create_study(direction='maximize',sampler=sampler)
         # optuna.logging.set_verbosity(optuna.logging.WARNING)
-        study.optimize(objective, n_trials=15)
+        study.optimize(objective, n_trials=50)
 
     print(study.best_trial)
     print(study.best_params)
